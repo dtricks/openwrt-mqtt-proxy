@@ -19,12 +19,13 @@
 use mqtt::AsyncClient;
 use paho_mqtt as mqtt;
 use simplelog::ColorChoice;
-use simplelog::Config;
 use simplelog::ConfigBuilder;
 use simplelog::LevelFilter;
 use simplelog::TermLogger;
 use simplelog::{TerminalMode, WriteLogger};
 
+use chrono::prelude::*;
+use std::env;
 use std::error::Error;
 use std::net::Ipv4Addr;
 use tokio::net::TcpListener;
@@ -34,20 +35,30 @@ use std::io;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let listener = TcpListener::bind((Ipv4Addr::new(0, 0, 0, 0), 9000)).await?;
-    let cli = mqtt::AsyncClient::new("tcp://mqtt.eclipseprojects.io:1883")?;
+    dotenv::dotenv().ok();
     let conf = ConfigBuilder::new().set_time_format_str("%+").build();
+    let time = Local::now().format("%F_%X").to_string();
+    let level_filter = str::parse::<LevelFilter>(&env::var("log_level")?)?;
     simplelog::CombinedLogger::init(vec![
         TermLogger::new(
-            LevelFilter::Info,
+            level_filter,
             conf.clone(),
             TerminalMode::Mixed,
             ColorChoice::Auto,
         ),
-        WriteLogger::new(LevelFilter::Info, conf, std::fs::File::create("proxy.log")?),
+        WriteLogger::new(
+            level_filter,
+            conf,
+            std::fs::File::create(format!("{}_{}", time, "proxy.log"))?,
+        ),
     ])?;
     log::info!("Initialized Logger");
-    //println!("Initialized Logger");
+
+    let ip = str::parse::<Ipv4Addr>(&env::var("server_host")?)?;
+    let listener = TcpListener::bind((ip, str::parse::<u16>(&env::var("server_port")?)?)).await?;
+
+    log::info!("Server started at {}", listener.local_addr()?);
+    let cli = mqtt::AsyncClient::new(env::var("mqtt_broker")?)?;
 
     // Start an async operation and get the token for it.
     let tok = cli.connect(mqtt::ConnectOptions::new());
@@ -57,17 +68,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let cli = cli.clone();
         match listener.accept().await {
             Ok((socket, addr)) => {
-                println!("new client: {:?}", addr);
+                log::info!("new client: {:?}", addr);
                 if !cli.is_connected() {
                     let tok = cli.reconnect();
                     tok.wait()?;
                 }
                 match handle_request(socket, cli).await {
                     Ok(_) => {}
-                    Err(e) => eprintln!("Error: {}", e),
+                    Err(e) => log::error!("Error: {}", e),
                 };
             }
-            Err(e) => eprintln!("couldn't get client: {:?}", e),
+            Err(e) => log::error!("couldn't get client: {:?}", e),
         }
     }
 }
@@ -82,18 +93,22 @@ async fn handle_request(stream: TcpStream, cli: AsyncClient) -> Result<(), Box<d
         match stream.try_read(&mut buf) {
             Ok(0) => break,
             Ok(n) => {
-                println!("read {} bytes", n);
+                log::debug!("read {} bytes", n);
 
                 let tok = cli.publish(
                     mqtt::message::MessageBuilder::new()
-                        .topic("test")
+                        .topic(env::var("mqtt_topic")?)
                         .payload(&buf[0..n])
-                        .qos(2)
+                        .qos(str::parse(&env::var("mqtt_qos")?).unwrap_or(0))
                         .retained(false)
                         .finalize(),
                 );
                 tok.wait()?;
-                println!("published");
+                let mut hex: String = String::new();
+                for i in &buf[0..n] {
+                    hex.push_str(&format!("{:02X}", i));
+                }
+                log::debug!("Published Payload: {}", hex);
             }
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                 continue;

@@ -6,5 +6,7 @@ https://github.com/tekjar/rust-on-openwrt
 
 ## Todo
 
-- [ ] Add config
+- [x] use logger
+  - [x] log to file with timestamp
+- [x] Add config
 
