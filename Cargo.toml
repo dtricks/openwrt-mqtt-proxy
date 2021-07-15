@@ -1,0 +1,27 @@
+[package]
+name = "openwrt-mqtt-proxy"
+version = "0.1.0"
+authors = ["Denis Kerner <dtricks@live.de>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.release]
+opt-level = 'z'     # Optimize for size.
+lto = true          # Enable Link Time Optimization
+codegen-units = 1   # Reduce number of codegen units to increase optimizations.
+panic = 'abort'     # Abort on panic
+
+[dependencies]
+log = "0.4"
+simplelog = "0.10"
+
+[dependencies.paho-mqtt]
+version = "0.9.1"
+default-features = false
+features = ["bundled"]
+
+[dependencies.tokio]
+version = "1.8.1"
+features = ["full"]
+
