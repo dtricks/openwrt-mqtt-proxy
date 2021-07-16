@@ -15,7 +15,6 @@ panic = 'abort'     # Abort on panic
 [dependencies]
 log = "0.4"
 simplelog = "0.10"
-chrono = "0.4"
 dotenv = "0.15"
 
 [dependencies.paho-mqtt]
