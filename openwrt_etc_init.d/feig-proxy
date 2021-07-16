@@ -1,0 +1,23 @@
+#!/bin/sh /etc/rc.common
+# Feig Notification Proxy Init Script
+ 
+START=11
+STOP=15
+ 
+start() {
+  #cd /root/python-feig-proxy/
+  cd /root/openwrt-mqtt-proxy/
+  ./openwrt-mqtt-proxy >/dev/null &
+  echo $! > /var/run/feig-proxy.pid
+}
+stop(){
+  echo "stopping feig-notification-proxy"
+  kill -TERM $(cat /var/run/feig-proxy.pid)
+}
+restart(){
+  echo "restarting"
+  kill -TERM $(cat /var/run/feig-proxy.pid)
+  #/usr/bin/python3 /root/python-feig-proxy/server_to_paho.py
+  cd /root/openwrt-mqtt-proxy/
+  ./openwrt-mqtt-proxy >/dev/null &
+}

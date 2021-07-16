@@ -68,17 +68,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let cli = cli.clone();
         match listener.accept().await {
             Ok((socket, addr)) => {
-                log::info!("new client: {:?}", addr);
+                log::debug!("new client: {:?}", addr);
                 if !cli.is_connected() {
                     let tok = cli.reconnect();
                     tok.wait()?;
                 }
                 match handle_request(socket, cli).await {
                     Ok(_) => {}
-                    Err(e) => log::error!("Error: {}", e),
+                    Err(e) => log::error!("Error Handling Client: {:?}", e),
                 };
             }
-            Err(e) => log::error!("couldn't get client: {:?}", e),
+            Err(e) => log::error!("Couldn't connect to client: {:?}", e),
         }
     }
 }
@@ -108,7 +108,7 @@ async fn handle_request(stream: TcpStream, cli: AsyncClient) -> Result<(), Box<d
                 for i in &buf[0..n] {
                     hex.push_str(&format!("{:02X}", i));
                 }
-                log::debug!("Published Payload: {}", hex);
+                log::info!("Published Payload: {}", hex);
             }
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                 continue;
