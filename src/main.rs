@@ -24,7 +24,6 @@ use simplelog::LevelFilter;
 use simplelog::TermLogger;
 use simplelog::{TerminalMode, WriteLogger};
 
-use chrono::prelude::*;
 use std::env;
 use std::error::Error;
 use std::net::Ipv4Addr;
@@ -37,7 +36,6 @@ use std::io;
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv::dotenv().ok();
     let conf = ConfigBuilder::new().set_time_format_str("%+").build();
-    let time = Local::now().format("%F_%X").to_string();
     let level_filter = str::parse::<LevelFilter>(&env::var("log_level")?)?;
     simplelog::CombinedLogger::init(vec![
         TermLogger::new(
@@ -46,11 +44,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             TerminalMode::Mixed,
             ColorChoice::Auto,
         ),
-        WriteLogger::new(
-            level_filter,
-            conf,
-            std::fs::File::create(format!("{}_{}", time, "proxy.log"))?,
-        ),
+        WriteLogger::new(level_filter, conf, std::fs::File::create("proxy.log")?),
     ])?;
     log::info!("Initialized Logger");
 
@@ -84,6 +78,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn handle_request(stream: TcpStream, cli: AsyncClient) -> Result<(), Box<dyn Error>> {
+    let topic = format!("{}/{}", env::var("mqtt_topic")?, stream.peer_addr()?.ip());
+    let time_at_req_start = std::time::Instant::now();
     Ok(loop {
         stream.readable().await?;
         let mut buf = [0; 4096];
@@ -97,18 +93,25 @@ async fn handle_request(stream: TcpStream, cli: AsyncClient) -> Result<(), Box<d
 
                 let tok = cli.publish(
                     mqtt::message::MessageBuilder::new()
-                        .topic(env::var("mqtt_topic")?)
+                        .topic(&topic)
                         .payload(&buf[0..n])
                         .qos(str::parse(&env::var("mqtt_qos")?).unwrap_or(0))
                         .retained(false)
                         .finalize(),
                 );
                 tok.wait()?;
+                let elapsed = time_at_req_start.elapsed();
                 let mut hex: String = String::new();
                 for i in &buf[0..n] {
                     hex.push_str(&format!("{:02X}", i));
                 }
-                log::info!("Published Payload: {}", hex);
+                log::info!(
+                    "Published to Broker: {} Topic: {}, Time since request start: {:?} Payload: {}",
+                    &env::var("mqtt_broker")?,
+                    &topic,
+                    &elapsed,
+                    &hex
+                );
             }
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                 continue;
