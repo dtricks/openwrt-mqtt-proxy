@@ -1,21 +1,3 @@
-//use std::net::{SocketAddr, TcpListener, TcpStream};
-//
-//fn handle_client(stream: TcpStream) {
-//    println!("Incoming from {}", stream.peer_addr().unwrap());
-//}
-//
-//fn main() -> std::io::Result<()> {
-//    let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], 8008)))?;
-//    println!("Started listener on {}", listener.local_addr().unwrap());
-//
-//    // accept connections and process them serially
-//    for stream in listener.incoming() {
-//        handle_client(stream?);
-//    }
-//    Ok(())
-//}
-
-//use futures::future::Future;
 use mqtt::AsyncClient;
 use paho_mqtt as mqtt;
 use simplelog::ColorChoice;
