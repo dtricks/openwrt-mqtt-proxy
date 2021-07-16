@@ -1,0 +1,1 @@
+5 4 * * *  /usr/sbin/logrotate /etc/logrotate.d/feig-proxy

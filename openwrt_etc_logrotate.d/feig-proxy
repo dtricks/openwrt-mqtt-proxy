@@ -1,0 +1,9 @@
+/root/openwrt-mqtt-proxy/*.log {
+						  rotate 14
+						  size 200k
+						  compress
+						  missingok
+						  notifempty
+						  copytruncate
+						  notifempty
+						  }
