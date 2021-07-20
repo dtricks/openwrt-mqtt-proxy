@@ -14,7 +14,7 @@ use tokio::net::TcpStream;
 
 use std::io;
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv::dotenv().ok();
     let conf = ConfigBuilder::new().set_time_format_str("%+").build();
@@ -49,10 +49,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     let tok = cli.reconnect();
                     tok.wait()?;
                 }
-                match handle_request(socket, cli).await {
-                    Ok(_) => {}
-                    Err(e) => log::error!("Error Handling Client: {:?}", e),
-                };
+                tokio::spawn(async move {
+                    match handle_request(socket, cli).await {
+                        Ok(_) => {}
+                        Err(e) => log::error!("Error Handling Client: {:?}", e),
+                    };
+                });
             }
             Err(e) => log::error!("Couldn't connect to client: {:?}", e),
         }
